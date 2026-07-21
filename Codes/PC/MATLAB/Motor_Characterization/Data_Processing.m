@@ -1,0 +1,229 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Design, modeling, and control of a low-cost air-bearing platform
+%
+% Software developed throughout the doctoral thesis.
+%
+% Author:      Luan Mateus Bocalan Vogás
+% Advisor:     Prof. Dr. Roberto Kawakami Harrop Galvão
+% Co-Advisor:  Profa. Dra. Gabriela Werner Gabriel
+%
+% Instituto Tecnológico de Aeronáutica (ITA)
+% Electronics Engineering Division
+% São José dos Campos, SP, Brazil
+% 2026
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+clear all
+close all
+clc
+
+%% Data loading 
+
+[ pusher_index, ...
+  pusher_time, ...
+  pusher_duty, ...
+  pusher_force, ...
+  tractor_index, ...
+  tractor_time, ...
+  tractor_duty, ...
+  tractor_force ...
+] = experimental_data_loading();
+
+%% Raw data
+
+% Duty cycle signal
+
+plot_enable = 0;
+
+plot_duty_cycle_signal(pusher_time, ...
+                       pusher_duty, ...
+                       plot_enable)
+
+% Raw force
+
+plot_enable = 0;
+
+plot_raw_data(pusher_time, ...
+              pusher_force, ...
+              tractor_time, ...
+              tractor_force, ...
+              plot_enable)
+
+%% Data separation
+
+% Pusher mode
+
+plot_enable = 0;
+
+[pusher_step_time, ...
+ pusher_step_duty, ...
+ pusher_step_force ...
+] = data_separation(pusher_time, ...
+                    pusher_duty, ...
+                    pusher_force, ...
+                    plot_enable);
+
+% Tractor mode
+
+plot_enable = 0;
+
+[tractor_step_time, ...
+ tractor_step_duty, ...
+ tractor_step_force ...
+] = data_separation(tractor_time, ...
+                    tractor_duty, ...
+                    tractor_force, ...
+                    plot_enable);
+
+%% Data normalization
+
+% Pusher mode
+
+plot_enable = 0;
+
+[pusher_norm_step_force] = data_normalization(pusher_step_time, ...
+                                              pusher_step_force, ...
+                                              plot_enable);
+
+% Tractor mode
+
+plot_enable = 0;
+
+[tractor_norm_step_force] = data_normalization(tractor_step_time, ...
+                                               tractor_step_force, ...
+                                               plot_enable);
+
+%% Steady state values
+
+% Pusher mode 
+
+[pusher_steady_state_duty, ...
+ pusher_steady_state_force] = steady_state_values(pusher_step_time, ...
+                                                  pusher_step_duty, ...
+                                                  pusher_step_force);
+
+% Tractor mode
+
+[tractor_steady_state_duty, ...
+ tractor_steady_state_force] = steady_state_values(tractor_step_time, ...
+                                                   tractor_step_duty, ...
+                                                   tractor_step_force);
+
+%% Maximum admissible force
+
+% Pusher mode
+
+[pusher_max_force] = maximum_admissible_force(pusher_steady_state_duty, ...
+                                              pusher_steady_state_force)
+
+% Tractor mode
+
+[tractor_max_force] = maximum_admissible_force(tractor_steady_state_duty, ...
+                                               tractor_steady_state_force)
+
+%% Static modeling
+
+% Pusher mode
+
+plot_enable = 0;
+
+[pusher_steady_state_duty_org, ...
+ pusher_steady_state_force_org ... 
+] = steady_state_step_organization(pusher_steady_state_duty, ...
+                                   pusher_steady_state_force, ...
+                                   plot_enable);
+
+display_result = 0;
+plot_enable = 0;
+
+static_modeling(pusher_steady_state_duty_org, ...
+                pusher_steady_state_force_org, ...
+                display_result, ...
+                plot_enable)
+
+% Tractor mode
+
+plot_enable = 0;
+
+[tractor_steady_state_duty_org, ...
+ tractor_steady_state_force_org ...
+] = steady_state_step_organization(tractor_steady_state_duty, ...
+                                   tractor_steady_state_force, ...
+                                   plot_enable);
+
+display_result = 0;
+plot_enable = 0;
+
+static_modeling(tractor_steady_state_duty_org, ...
+                tractor_steady_state_force_org, ...
+                display_result, ...
+                plot_enable)
+
+%% Determination of average dynamics of each motor
+
+% Pusher mode
+
+norm_step_force = pusher_norm_step_force;
+
+plot_enable = 0;
+
+[pusher_mean_norm_step_force, ...
+ pusher_mode_mean_norm_step_force ...
+] = average_dynamic(pusher_norm_step_force, ...
+                    pusher_step_time, ...
+                    plot_enable);
+
+% Tractor mode
+
+plot_enable = 0;
+
+[tractor_mean_norm_step_force, ...
+ tractor_mode_mean_norm_step_force ...
+] = average_dynamic(tractor_norm_step_force, ...
+                    tractor_step_time, ...
+                    plot_enable);
+
+%% Determining the overall average dynamics
+
+plot_enable = 0;
+
+[time,mean_dynamic_motors ...
+] = overall_average_dynamics(pusher_step_time, ...
+                             pusher_mean_norm_step_force, ...
+                             pusher_mode_mean_norm_step_force, ...
+                             tractor_step_time, ...
+                             tractor_mean_norm_step_force, ...
+                             tractor_mode_mean_norm_step_force, ...
+                             plot_enable);
+
+%% Mean model identification
+
+plot_enable = 0;
+
+identification_enable = 0; % It can take a certain amount of time
+
+if(identification_enable)
+
+    [tau,tm,step_sim] = motor_model_identification(time, ...
+                                                   mean_dynamic_motors, ...
+                                                   plot_enable);
+    
+    save('Matlab_Data\average_model_identified','tau','tm','step_sim')
+
+else
+    load('Matlab_Data\average_model_identified')
+end
+
+%% Data storage
+
+% Data storage for controller design
+
+Gm = tf(1,[tau 1]);
+
+save('Matlab_Data\drone_motors_model','Gm','tm')
+
+
+
+
+
+
